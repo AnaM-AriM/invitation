@@ -1,0 +1,38 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": [
+      "DOM",
+      "DOM.Iterable",
+      "ESNext"
+    ],
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "esModuleInterop": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "types": [
+      "node"
+    ]
+  },
+  "include": [
+    "site/**/*.ts",
+    "site/**/*.tsx",
+    "app/**/*.tsx",
+    "lib/**/*.ts",
+    "scripts/pages-build.ts",
+    "tests/**/*.ts",
+    "vite.pages.config.ts",
+    "playwright.pages.config.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "out",
+    "outputs"
+  ]
+}

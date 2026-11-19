@@ -1,0 +1,42 @@
+name: Deploy invitation to GitHub Pages
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run test:unit
+      - run: npm run test:pages
+      - name: Configure Pages
+        id: pages
+        uses: actions/configure-pages@v5
+      - name: Build static invitation
+        env:
+          PAGES_BASE_PATH: ${{ steps.pages.outputs.base_path }}/
+          VITE_GUESTBOOK_URL: ${{ vars.VITE_GUESTBOOK_URL }}
+        run: npm run build:pages
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: out
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
