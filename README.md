@@ -34,3 +34,11 @@ npm run test:pages:browser
 ```
 
 브라우저 테스트는 Google Chrome과 4180·4191 포트를 사용합니다. 외부 서비스는 fixture 응답으로 검증하므로 실제 Google/GitHub 계정 연결을 확인하려면 설정 문서의 운영 검증을 별도로 진행하세요.
+
+## 교통 안내와 배경 음악
+
+`site/wedding.ts`의 `venue.transit`에 주차·대중교통 안내를 설정합니다. [전주시 관광 공식 안내](https://tour.jeonju.go.kr/board/view.jeonju?boardId=BBS_0000004&dataSid=220&menuCd=DOM_000000104001000000)를 2026-11-23 확인한 내용을 바탕으로, 별도 주차동과 인근 정류장만 간단히 안내합니다. 요금·배차·소요 시간은 안내하지 않습니다.
+
+하단 **음악 켜기**를 누르면 봄 정원 분위기의 오리지널 연주 `public/audio/spring-garden.mp3`가 반복 재생됩니다. 외부 음원·녹음을 사용하지 않았습니다. 기본은 꺼짐이며, 탭이 숨겨지면 정지하고 돌아와도 자동으로 켜지지 않습니다. 모바일 기기에서 음량 조절이 제한될 수 있어 파일 자체의 음량도 낮췄습니다.
+
+음원 재생성은 Node.js와 ffmpeg가 설치된 환경에서 `node scripts/create-garden-music.mjs public/audio/spring-garden.mp3`로 선택적으로 실행합니다. 일반 빌드에는 필요하지 않습니다.

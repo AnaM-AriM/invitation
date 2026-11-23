@@ -7,6 +7,7 @@ import { calendarFile, postGuestbook, prepareSubmission, readGuestbook, type Sub
 import { wedding as w } from "./wedding";
 import PhotoGallery, { CoverPhoto } from "./photo-gallery";
 import PhotoManager from "./photo-manager";
+import BackgroundMusic from "./background-music";
 const endpoint = (import.meta as ImportMeta & { env: Record<string, string> }).env.VITE_GUESTBOOK_URL || w.guestbookUrl;
 const empty: GardenData = { comments: [], guests: [], total: 0, page: 0, scene: 0 };
 const date = new Date(w.dateTime);
@@ -86,6 +87,6 @@ export default function Invitation() {
       {data.total > 6 && <nav className="wi-pagination" aria-label="메시지 페이지"><button disabled={loading || data.page === 0} onClick={() => void load(data.page - 1, data.scene)}>이전 메시지</button><span>{data.page + 1} / {Math.ceil(data.total / 6)}</span><button disabled={loading || (data.page + 1) * 6 >= data.total} onClick={() => void load(data.page + 1, data.scene)}>다음 메시지</button></nav>}
       <form onSubmit={submit} className="wi-form"><label htmlFor="wi-name">성함</label><input id="wi-name" value={name} maxLength={20} required autoComplete="name" placeholder="성함을 남겨 주세요" disabled={sending} onChange={event => setName(event.target.value)}/><label htmlFor="wi-message">축하의 마음</label><textarea id="wi-message" value={message} maxLength={300} required rows={4} placeholder="두 사람에게 전하고 싶은 마음" disabled={sending} onChange={event => setMessage(event.target.value)}/><small>이름과 메시지는 방문자 모두에게 공개됩니다. 연락처 등 개인정보를 적지 말아 주세요.</small><button className="wi-button wi-primary" disabled={sending} type="submit">{sending ? "저장 확인 중…" : endpoint ? "축하 메시지 남기기" : "저장 없이 예시로 남기기"}</button></form>
     </section><footer className="wi-footer"><span>THANK YOU FOR BEING PART OF OUR DAY</span><p>{w.couple[0].name} &amp; {w.couple[1].name}</p><small>함께해 주셔서 고맙습니다.</small><PhotoManager/></footer>
-    <div className="wi-toast" role="status" aria-live="polite">{notice}</div><nav className="wi-dock" aria-label="빠른 이동"><a href="#location">오시는 길</a><a href="#guestbook">축하 남기기</a><button onClick={() => void share()}>초대장 공유</button></nav>
+    <div className="wi-toast" role="status" aria-live="polite">{notice}</div><nav className="wi-dock" aria-label="빠른 이동"><a href="#location">오시는 길</a><a href="#guestbook">축하 남기기</a><button onClick={() => void share()}>초대장 공유</button><BackgroundMusic/></nav>
   </main>;
 }
