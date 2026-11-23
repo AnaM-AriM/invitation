@@ -1,6 +1,6 @@
 # 모바일 청첩장
 
-React/Vite로 만든 독립 정적 청첩장입니다. GitHub Pages 배포, 사진 갤러리·사진 관리, 선택적인 Google Sheets 방명록을 제공합니다. 현재 이름·예식 정보는 예시이며 사진 목록과 방명록 URL은 비어 있습니다. URL을 연결하지 않으면 방명록 입력은 현재 탭에서만 유지됩니다.
+React/Vite로 만든 독립 정적 청첩장입니다. GitHub Pages 배포, 사진 갤러리·사진 관리, 선택적인 Google Sheets 방명록을 제공합니다. 권아남·유아림의 2027년 3월 13일 오후 2시, 전주 그랜드힐스턴 예식 정보가 설정되어 있습니다. 방명록 URL은 비어 있습니다. URL을 연결하지 않으면 방명록 입력은 현재 탭에서만 유지됩니다.
 
 ## 시작하기
 
@@ -11,7 +11,7 @@ npm ci
 npm run dev
 ```
 
-`site/wedding.ts`에서 예식 정보와 문구를 수정하고 실제 정보로 바꾼 후 `isExample: false`로 설정합니다. 사진은 웹 화면 하단의 **사진 관리** 또는 `npm run photos:add -- "/path/to/photo.jpg"`로 추가합니다. 저장한 사진은 공개됩니다.
+`site/wedding.ts`에서 예식 정보와 문구를 수정합니다. 개인 전화번호(`couple[].phone`), 부모님(`parents`), 홀(`venue.hall`)은 확인 후 입력하세요. 번호가 없으면 개인 전화 버튼은 준비 중으로 비활성화되고, 번호 입력 후 전화·문자 링크가 표시됩니다. `endDateTime`은 일정 저장용으로 기존 1시간 길이(오후 3시)를 유지한 값이며 실제 예식 종료 시각을 확인한 값은 아닙니다. 사진은 웹 화면 하단의 **사진 관리** 또는 `npm run photos:add -- "/path/to/photo.jpg"`로 추가합니다. 저장한 사진은 공개됩니다.
 
 ```sh
 PAGES_BASE_PATH=/invitation/ npm run build
