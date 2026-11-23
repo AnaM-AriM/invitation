@@ -35,8 +35,104 @@ jobs:
           VITE_GUESTBOOK_URL: ${{ vars.VITE_GUESTBOOK_URL }}
         run: npm run build:pages
       - uses: actions/upload-pages-artifact@v4
+        id: upload
         with:
           path: out
       - name: Deploy
         id: deployment
-        uses: actions/deploy-pages@v4
+        # Use the uploaded ID directly to avoid broken artifact rediscovery.
+        uses: actions/github-script@v8
+        env:
+          PAGES_ARTIFACT_ID: ${{ steps.upload.outputs.artifact_id }}
+        with:
+          debug: false
+          script: |
+            const rawArtifactId = process.env.PAGES_ARTIFACT_ID;
+            if (typeof rawArtifactId !== 'string' || !/^[0-9]+$/.test(rawArtifactId) || rawArtifactId.trim() !== rawArtifactId) {
+              core.setFailed('Invalid Pages artifact ID.');
+              return;
+            }
+            const artifactId = Number(rawArtifactId);
+            if (!Number.isSafeInteger(artifactId) || artifactId <= 0) {
+              core.setFailed('Invalid Pages artifact ID.');
+              return;
+            }
+            const failRequest = (operation, error) => {
+              const status = error?.status;
+              core.setFailed(`${operation} failed (HTTP ${Number.isInteger(status) && status >= 100 && status <= 599 ? status : 'unknown'}).`);
+            };
+            let oidcToken;
+            try {
+              oidcToken = await core.getIDToken();
+              core.setSecret(oidcToken);
+            } catch {
+              core.setFailed('Could not obtain Pages deployment identity.');
+              return;
+            }
+            let deployment;
+            try {
+              deployment = await github.request('POST /repos/{owner}/{repo}/pages/deployments', {
+                ...context.repo, artifact_id: artifactId, pages_build_version: context.sha, oidc_token: oidcToken
+              });
+            } catch (error) {
+              failRequest('Pages deployment creation', error);
+              return;
+            }
+            const deploymentId = deployment?.data?.id;
+            if (!((typeof deploymentId === 'string' && deploymentId.trim().length > 0) ||
+                  (Number.isSafeInteger(deploymentId) && deploymentId > 0))) {
+              core.setFailed('Pages deployment returned an invalid ID.');
+              return;
+            }
+            const terminalErrors = new Set(['deployment_failed', 'deployment_perms_error', 'deployment_content_failed', 'deployment_cancelled', 'deployment_lost']);
+            const deadline = Date.now() + 10 * 60 * 1000;
+            while (Date.now() < deadline) {
+              await new Promise(resolve => setTimeout(resolve, 5000));
+              if (Date.now() >= deadline) break;
+              let result;
+              try {
+                result = await github.request('GET /repos/{owner}/{repo}/pages/deployments/{pages_deployment_id}', {
+                  ...context.repo, pages_deployment_id: deploymentId
+                });
+              } catch (error) {
+                failRequest('Pages deployment status', error);
+                return;
+              }
+              const status = result?.data?.status;
+              if (typeof status !== 'string' || !status.trim()) {
+                core.setFailed('Pages deployment returned an invalid status.');
+                return;
+              }
+              if (terminalErrors.has(status)) {
+                core.setFailed('Pages deployment reported a terminal failure.');
+                return;
+              }
+              if (status === 'succeed') {
+                let pages;
+                try {
+                  pages = await github.request('GET /repos/{owner}/{repo}/pages', context.repo);
+                } catch (error) {
+                  failRequest('Pages site URL lookup', error);
+                  return;
+                }
+                let pageUrl;
+                try {
+                  pageUrl = new URL(pages?.data?.html_url);
+                  if (pageUrl.protocol !== 'https:' || pageUrl.username || pageUrl.password) throw new Error();
+                } catch {
+                  core.setFailed('Pages returned an invalid HTTPS site URL.');
+                  return;
+                }
+                core.setOutput('page_url', pageUrl.href);
+                return;
+              }
+            }
+            try {
+              await github.request('POST /repos/{owner}/{repo}/pages/deployments/{pages_deployment_id}/cancel', {
+                ...context.repo, pages_deployment_id: deploymentId
+              });
+            } catch (error) {
+              const status = error?.status;
+              core.warning(`Pages cancellation failed (HTTP ${Number.isInteger(status) && status >= 100 && status <= 599 ? status : 'unknown'}).`);
+            }
+            core.setFailed('Pages deployment timed out after 10 minutes; cancellation was attempted.');
