@@ -46,7 +46,7 @@ test('populated nested production gallery supports focus, keyboard, errors and m
   for (const width of [320, 390]) { await page.setViewportSize({ width, height: 844 }); await thumbs.nth(0).click(); expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true); expect((await dialog.boundingBox())!.width).toBeLessThanOrEqual(width); await page.keyboard.press('Escape'); }
   await page.screenshot({ path: 'outputs/images/qa-photo-fixture-mobile.png', fullPage: true }); await thumbs.nth(0).click(); await page.screenshot({ path: 'outputs/images/qa-photo-modal-mobile.png' }); await page.keyboard.press('Escape'); expect(errors).toEqual([]);
 });
-test('nested production art loads all 48 guest actors and preserves dog controls without missing assets', async ({ page }) => {
+test('nested production art loads the complete guest cast and preserves dog controls without missing assets', async ({ page }) => {
   const errors: string[] = [], failures: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
   page.on('response', response => { if (response.status() >= 400 && response.url().includes('/assets/')) failures.push(response.url()); });
@@ -56,9 +56,33 @@ test('nested production art loads all 48 guest actors and preserves dog controls
     await route.fulfill({ json: { total: wishes.length, comments: wishes.slice(0, 6), guests: wishes.slice(scene * 36, scene * 36 + 36), page: 0, scene } });
   });
   await page.goto('http://127.0.0.1:4191/invitation/#guestbook');
+  await page.getByRole('button', { name: '정원 전체 보기', exact: true }).click();
   await expect(page.getByTestId('guest')).toHaveCount(36);
   await expect.poll(() => page.locator('.guest-rig[data-preview=false][data-motion-ready=true]').count()).toBe(36);
   await expect(page.locator('.couple-rig[data-preview=false]')).toHaveAttribute('data-motion-ready', 'true');
+  const occupied = await page.getByTestId('garden-scene').evaluate(async scene => {
+    const garden = scene.getBoundingClientRect();
+    const feet = [...scene.querySelectorAll<HTMLElement>('.guest')].map(guest => {
+      const box = guest.getBoundingClientRect();
+      return { x: box.left + box.width / 2, y: box.bottom, guest: guest.dataset.ordinal };
+    });
+    const overlaps: string[] = [];
+    for (const prop of scene.querySelectorAll<HTMLElement>('.reception-prop')) {
+      if (prop.dataset.prop === 'dance-floor' || prop.dataset.prop === 'festoon-lights') continue;
+      const image = prop.querySelector('img')!;
+      await image.decode();
+      const box = prop.getBoundingClientRect();
+      const width = Math.min(box.width, box.height * image.naturalWidth / image.naturalHeight);
+      // Only the low part of a table, bench or sofa occupies the lawn.
+      const baseX = box.left + box.width / 2, baseY = box.bottom - box.height * .15;
+      for (const foot of feet) {
+        if (Math.abs(foot.x - baseX) < width * .48 + garden.width * .02 &&
+            Math.abs(foot.y - baseY) < garden.height * .035) overlaps.push(`${prop.dataset.prop} / guest ${foot.guest}`);
+      }
+    }
+    return overlaps;
+  });
+  expect(occupied).toEqual([]);
   await page.getByRole('button', { name: '다음 정원', exact: true }).click();
   await expect(page.getByTestId('guest').first()).toHaveAttribute('data-ordinal', '36');
   await expect.poll(() => page.locator('.guest-rig[data-preview=false][data-motion-ready=true]').count()).toBe(36);

@@ -14,6 +14,8 @@ test("mobile nested deployment preserves assets, pagination, selection, ordinal 
   page.on("response", response => { if (response.status() >= 400 && response.url().includes("/assets/")) failures.push(response.url()); });
   page.on("pageerror", error => errors.push(error.message));
   await mock(page); await page.goto("./");
+  await page.getByTestId("garden-scene").scrollIntoViewIfNeeded();
+  await page.getByRole("button", { name: "정원 전체 보기", exact: true }).click();
   await expect(page.getByTestId("guest-total")).toHaveText("75"); await expect(page.getByTestId("guest")).toHaveCount(36);
   await expect(page.locator(".wi-comments article").first()).toContainText("하객75"); await expect(page.locator(".wi-comments article")).toHaveCount(6);
   await page.getByRole("button", { name: "다음 정원", exact: true }).click();
@@ -42,7 +44,8 @@ test("failed refresh retains comments and never changes to demo", async ({ page 
 });
 test("reduced motion keeps illustration and disables automatic dog movement", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" }); await mock(page); await page.goto("./#guestbook"); await expect(page.getByTestId("party-dog")).toHaveAttribute("data-animate", "false"); await expect(page.getByRole("button", { name: "강아지 안내 일시정지" })).toBeDisabled();
-  await expect(page.locator(".couple-original").last()).toBeVisible();
+  await page.getByRole("button", { name: "정원 전체 보기", exact: true }).click();
+  await expect(page.locator(".reception-couple .couple-original")).toBeVisible();
 });
 test("lost POST response preserves one request across retries and edited text gets a new UUID", async ({ page }) => {
   const ids: string[] = []; let calls = 0;

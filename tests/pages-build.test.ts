@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, readFile, readdir, rm, stat, symlink, writeFile } from 
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { templates, spritePath, gardenDecorations, receptionFurnishings } from '../lib/garden.ts';
+import { templates, SPRITE_COUNT, spritePath, gardenDecorations, receptionFurnishings } from '../lib/garden.ts';
 import { copyPagesPublic, excludedVersions, projectGuestMotion, selectedPublicFiles } from '../scripts/pages-build.ts';
 const root = resolve(import.meta.dirname, '..');
 async function inventory(directory: string, prefix = ''): Promise<string[]> {
@@ -68,10 +68,10 @@ test('public copy follows source symlinks into real destination files and preser
     assert.equal(await readFile(resolve(scratch, 'real/custom.txt'), 'utf8'), 'unrelated bytes');
   } finally { await rm(scratch, { recursive: true, force: true }); }
 });
-test('Pages guest projection retains all 48 ordered action/facing values and exact own still presence only', async () => {
+test('Pages guest projection retains all ordered action/facing values and exact own still presence only', async () => {
   const source = JSON.parse(await readFile(resolve(root, 'lib/guest-motion.json'), 'utf8'));
   const projected = projectGuestMotion(source);
-  assert.equal(projected.length, 48);
+  assert.equal(projected.length, SPRITE_COUNT);
   for (const [index, item] of source.entries()) {
     assert.deepEqual(Object.keys(projected[index]), Object.hasOwn(item, 'still') ? ['action', 'facing', 'still'] : ['action', 'facing']);
     assert.equal(projected[index].action, item.action); assert.equal(projected[index].facing, item.facing);
@@ -85,8 +85,8 @@ test('root and nested production outputs retain every active dynamic art depende
   const guests = JSON.parse(await readFile(resolve(root, 'lib/guest-parts.json'), 'utf8'));
   const couple = JSON.parse(await readFile(resolve(root, 'lib/couple-parts.json'), 'utf8'));
   const paths = new Set<string>([...templates.map(item => item.image), '/assets/v10/couple.webp']);
-  for (let sprite = 0; sprite < 48; sprite++) paths.add(spritePath(sprite));
-  assert.equal(guests.length, 48);
+  for (let sprite = 0; sprite < SPRITE_COUNT; sprite++) paths.add(spritePath(sprite));
+  assert.equal(guests.length, SPRITE_COUNT);
   for (const rig of [...guests, couple]) {
     paths.add(rig.body); paths.add(rig.source);
     for (const arm of Object.values(rig.arms) as { source?: string }[]) paths.add(arm.source ?? rig.source);
@@ -104,7 +104,11 @@ test('root and nested production outputs retain every active dynamic art depende
       for (const path of paths) assert.deepEqual(await readFile(resolve(output, path.slice(1))), await readFile(resolve(root, 'public', path.slice(1))), `${base} ${path}`);
       const expected = await selectedPublicFiles(resolve(root, 'public'), base, []);
       const actual = await inventory(output);
-      assert.deepEqual(actual.filter(path => path !== 'index.html' && !/^assets\/(?:index-|photo-manager-dialog-)/.test(path)), expected);
+      const sceneBundles = actual.filter(path => /^assets\/(?:cover-scene|garden-walk-renderer|three\.module)-[\w-]+\.js$/.test(path));
+      for (const name of ['cover-scene', 'garden-walk-renderer', 'three.module']) {
+        assert.equal(sceneBundles.filter(path => path.startsWith(`assets/${name}-`)).length, 1, `${base} ${name} bundle`);
+      }
+      assert.deepEqual(actual.filter(path => path !== 'index.html' && !sceneBundles.includes(path) && !/^assets\/(?:index-|photo-manager-dialog-)/.test(path)), expected);
     }
   } finally { await rm(scratch, { recursive: true, force: true }); }
 });

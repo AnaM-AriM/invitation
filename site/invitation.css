@@ -41,3 +41,39 @@ body:has(.wi-page){background:#eaece5}.wi-page{width:100%;max-width:480px;margin
 .wi-location .wi-location-map{display:block;width:100%;height:280px;border:0;margin:18px 0;border-radius:8px}
 
 .wi-dock .wi-music{min-width:0}.wi-dock .wi-music button{width:100%;min-height:44px;padding:0 3px;white-space:nowrap}.wi-music-status:empty{display:none}.wi-music-status{position:absolute;bottom:calc(100% + 8px);left:18px;right:18px;padding:12px 15px;background:#405137f5;color:#fffdf5;border-radius:7px;font-size:12px;line-height:1.8;pointer-events:none}
+
+.wi-garden-cover{--ink:#415c51;--mat:#e3ebdf;--edge:#869a85;--sky:#bfdfd2;--earth:#ece4c4;max-width:335px;margin:0 auto}
+.wi-garden-cover[data-light=sunset]{--ink:#7a4a44;--mat:#f3e2d5;--edge:#bc9784;--sky:#e49986;--earth:#ffe3ad}
+.wi-garden-cover[data-light=night]{--ink:#35465d;--mat:#dce1e6;--edge:#8391a5;--sky:#435474;--earth:#8c9a9b}
+.wi-garden-mat{padding:5px;border:1px solid var(--edge);border-radius:52% 52% 3px 3px / 44% 44% 3px 3px;background:var(--mat);box-shadow:0 13px 22px -20px #3f513e99}
+.wi-garden-window{isolation:isolate;overflow:hidden;border:1px solid var(--edge);border-radius:inherit;background:linear-gradient(var(--sky),var(--earth));touch-action:pan-y}
+.wi-garden-print{position:absolute;inset:0;background-size:cover;background-position:center;mix-blend-mode:multiply;opacity:.72}
+.wi-garden-window .wi-hero-arch{inset:10% 9% 5%;width:82%;height:85%}
+.wi-garden-window .couple-rig{inset:29% 16% 5%;width:68%;height:66%}
+.wi-garden-canvas{position:absolute;inset:0;z-index:2;width:100%;height:100%;opacity:0}
+.wi-garden-canvas[data-ready=true]{opacity:1}
+.wi-garden-lights{display:inline-flex;justify-content:center;align-items:center;margin:13px auto 0;padding:3px;border:1px solid #d5d8c9;border-radius:30px;background:#f6f5ef}
+.wi-garden-lights button{display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:7px 13px;min-height:34px;border:0;border-radius:22px;background:transparent;color:#606b60;font:500 11px/1.2 var(--sans);cursor:pointer}
+.wi-garden-lights button[aria-pressed=true]{background:var(--ink);color:#fffdf5}
+.wi-garden-lights button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+
+.wi-guestbook .scene{background:#faf8f2}
+.garden-overview{position:absolute;inset:0}
+.garden-overview .decor-item:is([src$="/arch.webp"],[src$="/blossoms.webp"],[src$="/daisies.webp"],[src$="/planters.webp"]),
+.garden-overview .reception-prop img:is([src$="/dining.webp"],[src$="/dessert.webp"],[src$="/music.webp"]){filter:var(--flower-ink)}
+.garden-overview .reception-prop img:is([src$="/cocktail.webp"],[src$="/bar.webp"]){filter:var(--table-flowers)}
+.garden-overview .scene-bg[src$="/bg-garden.webp"]{filter:var(--backdrop-flowers) blur(var(--background-blur,0px)) saturate(.9)}
+.garden-overview .guest.group-actor .guest-rig[data-flowers] :is(.guest-original,.human-part,.human-root-cover){filter:var(--guest-flowers)}
+.garden-overview .couple-rig{filter:var(--bouquet-ink)}
+.garden-overview .petal{background:#fffdf6db;box-shadow:inset 0 0 0 .6px #c6c2b8}
+.garden-walk-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;opacity:0;pointer-events:none;touch-action:pan-y pinch-zoom}
+.garden-walk-canvas[data-ready=true]{opacity:1;pointer-events:auto}
+.garden-walk-canvas[hidden]{display:none}
+.garden-view-controls{display:flex;justify-content:center;gap:4px;margin:0 auto 9px}
+.garden-view-controls button{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:36px;padding:4px 13px;border:1px solid #d8dece;border-radius:22px;background:#fafbf5;color:#47594c;font-size:11px}
+.garden-view-controls button[aria-pressed=true]{color:#fffdf6;background:#425f50;border-color:#425f50}
+.scene-frame>.dog-message,.scene-frame>.guest-popover{position:relative;inset:auto;transform:none;width:100%;max-width:none;max-height:9rem;margin:8px 0 0;text-align:start;box-shadow:none}
+
+.guest-motion-canvas{position:absolute;inset:0;width:100%;height:100%;visibility:hidden;pointer-events:none}
+.guest-rig[data-motion-ready=true]>.guest-motion-canvas{visibility:visible}
+.guest-rig[data-motion=drawing][data-motion-ready=true]>.guest-original{visibility:hidden}

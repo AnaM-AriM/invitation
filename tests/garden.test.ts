@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { ACTOR_HEIGHT, ACTOR_WIDTH, couple, receptionFurnishings, SPRITE_COUNT, guestPresentation, spriteWidth, CAMERA_ORIGIN, GUESTS_PER_SCENE, atmosphere, gardenDecorations, photoDepth, countGuests, daysToWedding, groupCamera, guestSlots, sceneCount, spriteForOrdinal, spritePath } from "../lib/garden.ts";
-import { DOG_HOME, DOG_ROAM_POINTS, dogDestination, dogPathPoint, dogReadingTime, dogTravelTime } from "../lib/dog-tour.ts";
+import { DOG_HOME, dogDestination, dogPathPoint, dogReadingTime, dogTravelTime } from "../lib/dog-tour.ts";
+import { createGuestStroll, worldX, worldZ } from "../app/guest-stroll.ts";
 import { validateWish } from "../lib/validation.ts";
 test("zero, thresholds, and 5000 wishes keep every guest in one of the scenes", () => {
   for (const ratio of [1, 3, 5]) for (const count of [0,1,2,3,5,11,12,13,24,25,4999,5000]) {
@@ -36,9 +37,9 @@ test("validation rejects malformed payloads, oversize and invisible input",()=>{
   for(const input of [null,[],"text",{}, {...valid,name:" "},{...valid,name:"가".repeat(21)},{...valid,message:"가".repeat(301)},{...valid,requestId:"bad"},{...valid,name:"a\n"+"b"},{...valid,message:"a\u0000b"}]) assert.ok(validateWish(input).error);
 });
 
-test("48 candid designs appear before any design repeats",()=>{
- assert.equal(new Set(Array.from({length:48},(_,i)=>spriteForOrdinal(i))).size,48);
- assert.equal(spriteForOrdinal(48),spriteForOrdinal(0));
+test("all candid designs appear before any design repeats",()=>{
+ assert.equal(new Set(Array.from({length:SPRITE_COUNT},(_,i)=>spriteForOrdinal(i))).size,SPRITE_COUNT);
+ assert.equal(spriteForOrdinal(SPRITE_COUNT),spriteForOrdinal(0));
 });
 test("guests occupy the whole reception and face local partners",()=>{
  const guests=guestSlots(36,0),first=guests[0];
@@ -100,7 +101,7 @@ test("all guests have candid actions and follow their local partner direction",(
  for(const guest of guests){const pose=guestPresentation(guest.sprite,guest.left,guest.direction);if(pose.facing!=="back")assert.equal(pose.facing,guest.direction===1?"right":"left");}
 });
 test("all 5000 guests use the candid character library",()=>{
- for(let scene=0;scene<139;scene++)for(const guest of guestSlots(5000,scene))assert.ok(guest.sprite<48 && guestPresentation(guest.sprite,guest.left,guest.direction).action);
+ for(let scene=0;scene<139;scene++)for(const guest of guestSlots(5000,scene))assert.ok(guest.sprite<SPRITE_COUNT && guestPresentation(guest.sprite,guest.left,guest.direction).action);
 });
 test("reception furnishings grow cumulatively and retain their open dance floor",()=>{
  let previous:string[]=[];
@@ -120,7 +121,7 @@ test("the dog arrives beside each guest's feet and stays inside the reception",(
  }
 });
 test("dog paths retain their endpoints, remain bounded and never teleport mid-route",()=>{
- const destinations=[...guestSlots(36,0).map(dogDestination),...DOG_ROAM_POINTS,...DOG_ROAM_POINTS];let from=DOG_HOME;
+ const destinations=guestSlots(36,0).map(dogDestination);let from=DOG_HOME;
  for(const [i,to] of destinations.entries()){
   assert.deepEqual(dogPathPoint(from,to,0,i),from);assert.deepEqual(dogPathPoint(from,to,1,i),to);
   let last=from;
@@ -129,9 +130,70 @@ test("dog paths retain their endpoints, remain bounded and never teleport mid-ro
  }
 });
 test("walking and reading times stay bounded for nearby guests and long wishes",()=>{
- assert.ok(dogTravelTime(DOG_HOME,DOG_HOME)>=1000);
- assert.ok(dogTravelTime({left:0,bottom:0},{left:100,bottom:100})<=3600);
- assert.ok(dogReadingTime("축하해요")>=6500);assert.ok(dogReadingTime("가".repeat(300))<=14000);
+ assert.equal(dogTravelTime(DOG_HOME,DOG_HOME),4800);
+ const near=dogTravelTime(DOG_HOME,dogDestination(guestSlots(1,0)[0]));
+ assert.ok(near>6000 && near<11000);
+ assert.equal(dogTravelTime({left:0,bottom:0},{left:100,bottom:100}),11000);
+ assert.ok(dogReadingTime("축하해요")>=10000);assert.ok(dogReadingTime("가".repeat(300))<=22000);
  assert.ok(dogReadingTime("가".repeat(300))>dogReadingTime("축하해요"));
 });
 
+
+test("strolling guests take steps, pause and keep adjacent places clear", () => {
+  const slots = guestSlots(36, 0), walks = slots.map(slot => createGuestStroll(slot.ordinal));
+  const moved = new Set<number>(), stepped = new Set<number>(), paused = new Set<number>();
+  for (let t = .25; t <= 60; t += .25) {
+    const positions = walks.map(walk => walk(t));
+    positions.forEach((p, i) => {
+      const from = slots[i];
+      if (Math.hypot(p.x - worldX(from.left), p.z - worldZ(from.bottom)) > .2) moved.add(i);
+      if (Math.abs(p.stride) > .3) stepped.add(i);
+      const prev = walks[i](t - .25);
+      if (!p.stride && p.x === prev.x && p.z === prev.z) paused.add(i);
+      for (const other of positions.slice(i + 1)) {
+        assert.ok(Math.hypot(p.x - other.x, p.z - other.z) >= .73);
+      }
+    });
+  }
+  assert.deepEqual([moved.size, stepped.size, paused.size], [slots.length, slots.length, slots.length]);
+});
+
+test("the dog can reach a portrait around a bench and through the open arch", async () => {
+  const { gardenCameraPath, gardenViewBlocked } = await import("../app/garden-camera-path.ts");
+  const { benchXs, benchZ, gardenObstacles, groundClearance } = await import("../app/garden-ground.ts");
+  const x = benchXs[0], from = { x, z: benchZ - 1 }, to = { x, z: benchZ + 1 };
+  assert.ok(gardenViewBlocked(from, to, .8, .1, 52));
+  const detour = gardenCameraPath(from, to);
+  assert.ok(detour);
+  assert.deepEqual(detour[0], from);
+  assert.deepEqual(detour.at(-1), to);
+  for (let i = 1; i < detour.length; i++) {
+    const a = detour[i-1], b = detour[i];
+    for (let n = 0; n <= 20; n++) {
+      const px = a.x + (b.x - a.x) * n / 20, pz = a.z + (b.z - a.z) * n / 20;
+      assert.ok(gardenObstacles.every(o => groundClearance(px,pz,o) > 0));
+    }
+  }
+  assert.equal(gardenCameraPath(from, { x, z: benchZ + .15 }), undefined);
+  const entry = { x: 0, z: 3.1 }, exit = { x: 0, z: -.2 };
+  assert.equal(gardenViewBlocked(entry, exit, 1.5, .2, 52), false);
+  assert.deepEqual(gardenCameraPath(entry, exit), [entry, exit]);
+});
+
+test("guests in successive gardens stand and stroll on ground clear of plants and furniture", async () => {
+  const { gardenObstacles, groundClearance, guestFootRadius, guestGroundHome } = await import("../app/garden-ground.ts");
+  for (let ordinal = 0; ordinal < GUESTS_PER_SCENE * 2; ordinal++) {
+    const walk = createGuestStroll(ordinal);
+    const nearby = gardenObstacles.filter(obstacle => {
+      const home = guestGroundHome(ordinal);
+      return groundClearance(home.x, home.z, obstacle) < 3;
+    });
+    for (let time = 0; time <= 60; time += .25) {
+      const foot = walk(time);
+      for (const obstacle of nearby) {
+        assert.ok(groundClearance(foot.x, foot.z, obstacle) >= guestFootRadius - 1e-8,
+          `Guest ${ordinal + 1} steps into a planted or furnished area at ${time}s`);
+      }
+    }
+  }
+});

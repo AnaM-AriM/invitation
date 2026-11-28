@@ -5,7 +5,7 @@ export const guestMotions=guestMotion as GuestMotion[];
 // World coordinates remain fixed. The camera fits the growing group as a whole.
 export const GUESTS_PER_SCENE = 36;
 export const COMMENTS_PER_PAGE = 6;
-export const SPRITE_COUNT = 48;
+export const SPRITE_COUNT = guestMotions.length;
 export const ACTOR_HEIGHT = 17.2;
 export const ACTOR_WIDTH = ACTOR_HEIGHT * 1.25 * .65;
 export const templates = [
@@ -52,7 +52,7 @@ const points: [number,number,ReceptionZone,number][]=[
  [38,65,"music",1],[54,67,"music",-1],
  [38,11,"photo",1],[56,9,"lounge",-1],
 ];
-const partyOrder=[0,1,6,7,13,15,23,2,8,9,22,10,...Array.from({length:12},(_,i)=>24+i),3,4,5,11,12,14,16,17,18,19,20,21,...Array.from({length:12},(_,i)=>36+i)];
+const partyOrder=[0,1,6,7,13,15,23,2,8,9,22,10,...Array.from({length:12},(_,i)=>24+i),3,4,5,11,12,14,16,17,18,19,20,21,...Array.from({length:12},(_,i)=>36+i),48,49,50,51];
 export function photoDepth(bottom:number){return Math.round((100-bottom)*10);}
 export function spriteForOrdinal(ordinal:number){return partyOrder[ordinal%SPRITE_COUNT];}
 export const partyActions:GuestAction[]=guestMotions.map(motion=>motion.action);
@@ -87,14 +87,15 @@ export function receptionFurnishings(guests:number):ReceptionProp[]{
  const items:ReceptionProp[]=[];
  const add=(id:string,asset:string,left:number,bottom:number,width:number,height:number,ground=false)=>items.push({id,asset,left,bottom,width,height,depth:ground?0:photoDepth(bottom)});
  add("dance-floor","dance-floor",49,17,43,17,true);
- if(guests>=1)add("cocktail-table","cocktail",23,45,16,11);
- if(guests>=4)add("dining-table","dining",76,49,25,12);
- if(guests>=6){add("music-corner","music",46,59,18,11);add("festoon-lights","lights",50,82,88,10,true);}
- if(guests>=12)add("garden-lounge","lounge",18,7,25,12);
- if(guests>=24)add("dessert-table","dessert",82,9,18,13);
- if(guests>=36)add("garden-bar","bar",19,61,17,9);
- if(guests>=60)add("second-cocktail-table","cocktail",29,25,13,9);
- if(guests>=100)add("second-lounge","lounge",82,59,21,10);
+ // Leave walking space around the bases, including the piano bench and sofa feet.
+ if(guests>=1)add("cocktail-table","cocktail",21,40,16,11);
+ if(guests>=4)add("dining-table","dining",72,49,22,10);
+ if(guests>=6){add("music-corner","music",43,68,18,11);add("festoon-lights","lights",50,82,88,10,true);}
+ if(guests>=12)add("garden-lounge","lounge",24,2,23,10);
+ if(guests>=24)add("dessert-table","dessert",77,3,17,10);
+ if(guests>=36)add("garden-bar","bar",22,57,17,9);
+ if(guests>=60)add("second-cocktail-table","cocktail",27,20,13,9);
+ if(guests>=100)add("second-lounge","lounge",86,55,21,10);
  return items;
 }
 export interface GardenDecoration { id:string; asset:string; layer:"back"|"front"; left:number; top:number; width:number; height:number; flip?:boolean; }
@@ -104,7 +105,7 @@ export function gardenDecorations(guests:number):GardenDecoration[]{
  if(guests>=1){add("planter-left","planters","back",1,81,12,14);add("planter-right","planters","back",87,81,12,14,true);}
  if(guests>=6)add("bunting","bunting","back",10,2,80,8);
  if(guests>=12){add("daisies-front","daisies","front",0,89,15,11);add("roses-front","blossoms","front",85,89,15,11);}
- if(guests>=24)add("flower-arch","arch","back",66,10,27,34);
+ if(guests>=24)add("flower-arch","arch","back",69,2,22,27);
  if(guests>=36){add("lanterns-left","lanterns","back",4,11,10,14);add("lanterns-right","lanterns","back",86,9,10,14,true);}
  if(guests>=60){add("daisies-back","daisies","back",0,60,9,15);add("roses-back","blossoms","back",91,61,9,15);}
  if(guests>=100){add("bunting-inner","bunting","back",28,8,43,5);add("flower-border","blossoms","front",40,96,20,4);}

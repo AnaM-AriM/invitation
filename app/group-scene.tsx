@@ -1,30 +1,52 @@
 "use client";
 import { publicPath } from "../lib/public-path";
-import { useRef, useState, type CSSProperties } from "react";
-import { X } from "lucide-react";
+import { useId, useRef, useState, type CSSProperties } from "react";
+import { Grid2X2, PawPrint, X } from "lucide-react";
 import PartyDog from "./party-dog";
+import { whitePetalMatrix } from "./garden-flower-print";
+import { useGardenWalk } from "./use-garden-walk";
 import GuestSprite from "./guest-sprite";
 import CoupleSprite from "./couple-sprite";
 import type { DogVisitor } from "../lib/dog-tour";
 import { ACTOR_HEIGHT, ACTOR_WIDTH, couple, receptionFurnishings, guestPresentation, spriteWidth, atmosphere, gardenDecorations, groupCamera, guestSlots, photoDepth, type Wish, type templates } from "../lib/garden";
-type Props={template:typeof templates[number];totalGuests:number;scene:number;days:number|null;effects:boolean;getWish?:(ordinal:number)=>Wish|undefined;selected?:Wish|null;onSelect?:(wish:Wish|null)=>void;preview?:boolean;dogEnabled?:boolean;dogScope?:string;onDogEnabledChange?:(enabled:boolean)=>void;onDogSceneChange?:(scene:number)=>void};
-export default function GroupScene({template,totalGuests,scene,days,effects,getWish,selected,onSelect,preview=false,dogEnabled=true,dogScope="preview",onDogEnabledChange,onDogSceneChange}:Props){
+type Props={welcomeWishId?:number;template:typeof templates[number];totalGuests:number;scene:number;days:number|null;effects:boolean;getWish?:(ordinal:number)=>Wish|undefined;selected?:Wish|null;onSelect?:(wish:Wish|null)=>void;preview?:boolean;dogEnabled?:boolean;dogScope?:string;onDogEnabledChange?:(enabled:boolean)=>void;onDogSceneChange?:(scene:number)=>void};
+export default function GroupScene({welcomeWishId,template,totalGuests,scene,days,effects,getWish,selected,onSelect,preview=false,dogEnabled=true,dogScope="preview",onDogEnabledChange,onDogSceneChange}:Props){
  const [broken,setBroken]=useState(false),[dogGuest,setDogGuest]=useState<number|null>(null);
  const sceneRef=useRef<HTMLDivElement>(null),worldRef=useRef<HTMLDivElement>(null);
+ const flowerFilter=useId().replace(/[^a-zA-Z0-9_-]/g,"_");
  const slots=guestSlots(totalGuests,scene),camera=groupCamera(slots.length,scene),mood=atmosphere(totalGuests,days),decor=gardenDecorations(totalGuests),furnishings=receptionFurnishings(totalGuests);
  const visitors:DogVisitor[]=slots.flatMap(slot=>{const wish=getWish?.(slot.ordinal);return wish?[{...slot,wish}]:[];});
+ const walk=useGardenWalk(preview,visitors,totalGuests,visitor=>onSelect?.(visitor.wish));
  const actorStyle=(left:number,bottom:number,depth:number,scale=1,width=ACTOR_WIDTH)=>({"--left":`${left}%`,"--bottom":`${bottom}%`,"--depth":depth,"--actor-height":`${ACTOR_HEIGHT*scale}%`,"--actor-width":`${width*scale}%`} as CSSProperties);
  const decorations=(layer:"back"|"front")=><div className={`scene-decor scene-decor-${layer}`} aria-hidden="true" data-testid={`decor-${layer}`}>{decor.filter(item=>item.layer===layer).map(item=><img key={item.id} className="decor-item" src={publicPath(`/assets/v10/decor/${item.asset}.webp`)} alt="" data-decor={item.id} style={{left:`${item.left}%`,top:`${item.top}%`,width:`${item.width}%`,height:`${item.height}%`,transform:item.flip?"scaleX(-1)":undefined}} loading={preview?"lazy":"eager"}/>)}</div>;
  return <div className="scene-frame" data-testid="scene-frame">
-  <div className="scene" ref={sceneRef} aria-label={`${template.name}, ${scene+1}번째 장면에 하객 ${slots.length}명`} data-testid="garden-scene" data-count={slots.length} data-decor-count={decor.length} data-mood={mood.level} data-effects={effects} data-composition="reception" data-prop-count={furnishings.length} style={{"--background-blur":`${mood.blur}px`,"--background-wash":Math.min(.2,totalGuests/400)} as CSSProperties}>
+  {walk.ready && <div className="garden-view-controls" role="group" aria-label="정원 시점">
+   <button type="button" aria-label="강아지 시점으로 보기" aria-pressed={walk.walking} onClick={()=>walk.setOverview(false)}><PawPrint size={14} aria-hidden="true"/>강아지 시점</button>
+   <button type="button" aria-label="정원 전체 보기" aria-pressed={walk.overview} onClick={()=>walk.setOverview(true)}><Grid2X2 size={14} aria-hidden="true"/>정원 전체</button>
+  </div>}
+  <div className="scene" data-walk={walk.walking} ref={sceneRef} aria-label={`${template.name}, ${scene+1}번째 장면에 하객 ${slots.length}명`} data-testid="garden-scene" data-count={slots.length} data-decor-count={decor.length} data-mood={mood.level} data-effects={effects} data-composition="reception" data-prop-count={furnishings.length} style={{"--background-blur":`${mood.blur}px`,"--background-wash":Math.min(.2,totalGuests/400)} as CSSProperties}>
+   <div className="garden-overview" hidden={walk.walking} style={{"--flower-ink":`url(#${flowerFilter}-flower)`,"--backdrop-flowers":`url(#${flowerFilter}-backdrop)`,"--bouquet-ink":`url(#${flowerFilter}-bouquet)`,"--table-flowers":`url(#${flowerFilter}-table)`} as CSSProperties}>
+   <svg width="0" height="0" aria-hidden="true" style={{position:"absolute"}}><defs>
+    {[
+     {name:"flower",x:"0%",y:"0%",width:"100%",height:"100%"},
+     {name:"backdrop",x:"0%",y:"24%",width:"100%",height:"76%"},
+     {name:"bouquet",x:"22%",y:"15%",width:"27%",height:"52%"},
+     {name:"table",x:"48%",y:"0%",width:"52%",height:"50%"},
+    ].map(({name,...region})=><filter key={name} id={`${flowerFilter}-${name}`} x="0%" y="0%" width="100%" height="100%" primitiveUnits="objectBoundingBox" colorInterpolationFilters="sRGB">
+     <feColorMatrix in="SourceGraphic" type="matrix" values={whitePetalMatrix} {...region}/>
+     <feComposite in2="SourceGraphic" operator="atop"/>
+    </filter>)}
+   </defs></svg>
    <img className="scene-bg" src={publicPath(template.image)} alt={`${template.name} 곳곳에서 춤추고 대화하며 피로연을 즐기는 신랑·신부와 하객`} width={1120} height={1400} loading={preview?"lazy":"eager"} fetchPriority={preview?"auto":"high"} onLoad={()=>setBroken(false)} onError={()=>setBroken(true)}/>
    <div className="scene-depth" aria-hidden="true" />
    {decorations("back")}
    {broken && <div className="asset-error" role="alert">배경을 불러오지 못했어요. 잠시 후 새로고침해 주세요.</div>}
    <div className="group-world" ref={worldRef} data-testid="group-world" style={{"--camera-zoom":camera.zoom,"--camera-y":`${camera.y}%`} as CSSProperties}>
+    {!walk.walking && <>
     {furnishings.map(prop=><div key={prop.id} className="reception-prop group-actor" data-testid="reception-prop" data-prop={prop.id} style={{"--left":`${prop.left}%`,"--bottom":`${prop.bottom}%`,"--depth":prop.depth,"--actor-width":`${prop.width}%`,"--actor-height":`${prop.height}%`} as CSSProperties} aria-hidden="true"><img src={publicPath(`/assets/v10/props/${prop.asset}.webp`)} alt="" loading={preview?"lazy":"eager"}/></div>)}
-    {slots.map(slot=>{const wish=getWish?.(slot.ordinal),pose=guestPresentation(slot.sprite,slot.left,slot.direction);return <button key={slot.ordinal} className={`guest group-actor ${wish && selected?.id===wish.id?"is-selected":""} ${dogGuest===slot.ordinal && !selected?"dog-visited":""}`} style={{...actorStyle(slot.left,slot.bottom,slot.depth,slot.scale,spriteWidth(slot.sprite)),"--face-left":`${pose.faceLeft}%`,"--face-width":`${ACTOR_WIDTH*.44/spriteWidth(slot.sprite)*100}%`} as CSSProperties} onClick={()=>wish && onSelect?.(wish)} aria-label={wish?`${wish.name} 님의 축하 읽기`:`하객 ${slot.ordinal+1}`} data-testid="guest" data-ordinal={slot.ordinal} data-sprite={slot.sprite} data-zone={slot.zone} data-scale={slot.scale} data-action={pose.action} data-facing={pose.facing} tabIndex={preview?-1:0}><GuestSprite sprite={slot.sprite} flip={pose.flip} action={pose.action} ordinal={slot.ordinal} preview={preview}/><span className="guest-hit guest-hit-face" aria-hidden="true"/><span className="guest-hit guest-hit-body" aria-hidden="true"/></button>;})}
+    {slots.map(slot=>{const wish=getWish?.(slot.ordinal),pose=guestPresentation(slot.sprite,slot.left,slot.direction);return <button key={slot.ordinal} className={`guest group-actor ${wish && selected?.id===wish.id?"is-selected":""} ${dogGuest===slot.ordinal && !selected?"dog-visited":""}`} style={{...actorStyle(slot.left,slot.bottom,slot.depth,slot.scale,spriteWidth(slot.sprite)),"--face-left":`${pose.faceLeft}%`,"--face-width":`${ACTOR_WIDTH*.44/spriteWidth(slot.sprite)*100}%`} as CSSProperties} onClick={()=>wish && onSelect?.(wish)} aria-label={wish?`${wish.name} 님의 축하 읽기`:`하객 ${slot.ordinal+1}`} data-testid="guest" data-ordinal={slot.ordinal} data-sprite={slot.sprite} data-zone={slot.zone} data-scale={slot.scale} data-action={pose.action} data-facing={pose.facing} tabIndex={preview?-1:0}><GuestSprite sprite={slot.sprite} flip={pose.flip} action={pose.action} ordinal={slot.ordinal} preview={preview} effects={effects} paused={!dogEnabled || !!selected}/><span className="guest-hit guest-hit-face" aria-hidden="true"/><span className="guest-hit guest-hit-body" aria-hidden="true"/></button>;})}
     <div className="reception-couple group-actor" data-testid="wedding-couple" style={{"--left":`${couple.left}%`,"--bottom":`${couple.bottom}%`,"--depth":photoDepth(couple.bottom),"--actor-width":`${couple.width}%`,"--actor-height":`${couple.height}%`} as CSSProperties}><CoupleSprite preview={preview}/><span className="reception-couple-mark" aria-hidden="true">JUST MARRIED</span></div>
+    </>}
    </div>
    {decorations("front")}
    {effects && <div className="scene-effects" aria-hidden="true" data-testid="scene-effects">
@@ -33,9 +55,11 @@ export default function GroupScene({template,totalGuests,scene,days,effects,getW
     {Array.from({length:mood.confetti},(_,i)=><i key={`c${i}`} className="confetti" style={{"--x":`${(i*29+4)%100}%`,"--delay":`${-i*.8}s`,"--duration":`${9+i%4}s`,background:["#d2ab63","#c88d91","#a1b49b","#e6d7b1"][i%4]} as CSSProperties}/>)}
     {mood.level>=2 && <div className="fairy-lights">{Array.from({length:9},(_,i)=><i key={i} />)}</div>}
    </div>}
-   {selected && <div className="guest-popover" role="status"><strong>{selected.name}</strong><p>{selected.message}</p><button aria-label="축하 메시지 닫기" onClick={()=>onSelect?.(null)}><X size={14}/></button></div>}
+   </div>
+   {!preview && <canvas className="garden-walk-canvas" ref={walk.canvas} data-ready={walk.ready} hidden={walk.overview && walk.ready} role="img" aria-hidden={!walk.walking} aria-label="강아지 눈높이에서 바라본 입체 축하 정원"/>}
   </div>
   <div className="scene-caption"><span><i className="live-dot"/>{mood.name}</span><span>하객 <strong data-testid="guest-total">{totalGuests.toLocaleString()}</strong>명 · 함께한 주인공 2명</span></div>
-  <PartyDog visitors={visitors} scene={scene} totalGuests={totalGuests} scope={dogScope} enabled={dogEnabled} effects={effects} preview={preview} manualSelected={!!selected} sceneRef={sceneRef} worldRef={worldRef} onEnabledChange={onDogEnabledChange} onAdvanceScene={onDogSceneChange} onVisitChange={setDogGuest} onClearManual={()=>onSelect?.(null)}/>
+  <PartyDog welcomeWishId={welcomeWishId} onPose={walk.placeCamera} visitors={visitors} scene={scene} totalGuests={totalGuests} scope={dogScope} enabled={dogEnabled} effects={effects} preview={preview} manualSelected={!!selected} sceneRef={sceneRef} worldRef={worldRef} onEnabledChange={onDogEnabledChange} onAdvanceScene={onDogSceneChange} onVisitChange={setDogGuest} onClearManual={()=>onSelect?.(null)}/>
+  {selected && <div className="guest-popover" role="status"><strong>{selected.name}</strong><p>{selected.message}</p><button aria-label="축하 메시지 닫기" onClick={()=>onSelect?.(null)}><X size={14}/></button></div>}
  </div>;
 }

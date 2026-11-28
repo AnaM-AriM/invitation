@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import GroupScene from "../app/group-scene";
-import CoupleSprite from "../app/couple-sprite";
-import { templates, daysToWedding, type GardenData, type Wish } from "../lib/garden";
-import { publicPath } from "../lib/public-path";
+import IllustratedCover from "./illustrated-cover";
+import { templates, daysToWedding, sceneCount, type GardenData, type Wish } from "../lib/garden";
 import { calendarFile, postGuestbook, prepareSubmission, readGuestbook, type Submission } from "./guestbook";
 import { wedding as w } from "./wedding";
 import PhotoGallery, { CoverPhoto } from "./photo-gallery";
@@ -20,6 +19,7 @@ export default function Invitation() {
   const [data, setData] = useState<GardenData>(empty), [selected, setSelected] = useState<Wish | null>(null);
   const [name, setName] = useState(""), [message, setMessage] = useState(""), [notice, setNotice] = useState(""), [readError, setReadError] = useState("");
   const [sending, setSending] = useState(false), [loading, setLoading] = useState(false), [dog, setDog] = useState(true);
+  const [welcomeWishId, setWelcomeWishId] = useState<number>();
   const pending = useRef<Submission | undefined>(undefined), readSequence = useRef(0), abortRead = useRef<AbortController | null>(null);
   const demo = useRef<Wish[]>([]);
   const load = useCallback(async (page = 0, scene = 0) => {
@@ -33,25 +33,34 @@ export default function Invitation() {
         const all = demo.current, p = Math.min(Math.max(0, page), Math.max(0, Math.ceil(all.length / 6) - 1)), s = Math.min(Math.max(0, scene), Math.max(0, Math.ceil(all.length / 36) - 1));
         next = { total: all.length, page: p, scene: s, comments: [...all].reverse().slice(p * 6, p * 6 + 6), guests: all.slice(s * 36, s * 36 + 36) };
       }
-      if (sequence === readSequence.current && !controller.signal.aborted) { setData(next); setSelected(null); }
+      if (sequence === readSequence.current && !controller.signal.aborted) { setData(next); setSelected(null); return next; }
     } catch { if (sequence === readSequence.current && !controller.signal.aborted) setReadError("방명록을 불러오지 못했어요. 아래 새로고침으로 다시 시도해 주세요."); }
     finally { if (sequence === readSequence.current) setLoading(false); }
   }, []);
   useEffect(() => { const startup = setTimeout(() => void load(), 0); return () => { clearTimeout(startup); abortRead.current?.abort(); }; }, [load]);
+  useEffect(() => {
+    // A shared garden link can open before React has mounted the anchor.
+    if (location.hash === "#guestbook") document.getElementById("guestbook")?.scrollIntoView({ behavior: "instant" });
+  }, []);
   async function submit(event: FormEvent) {
     event.preventDefault(); if (sending) return;
     setNotice("");
     try {
       const attempt = prepareSubmission(name, message, pending.current); pending.current = attempt;
       setSending(true);
+      let total: number, savedId: number;
       if (endpoint) {
-        await postGuestbook(endpoint, attempt);
+        const ack = await postGuestbook(endpoint, attempt);
+        total = ack.total; savedId = ack.comment.id;
         setNotice("축하의 마음이 저장되었어요. 고맙습니다.");
       } else {
         demo.current.push({ id: demo.current.length + 1, name: attempt.name, message: attempt.message, createdAt: new Date().toISOString() });
+        total = demo.current.length; savedId = demo.current[total - 1].id;
         setNotice("예시 화면에만 추가했어요. 저장되지 않으며 새로고침하면 사라집니다.");
       }
-      pending.current = undefined; setName(""); setMessage(""); await load(0, data.scene);
+      pending.current = undefined; setName(""); setMessage("");
+      const refreshed = await load(0, sceneCount(total) - 1);
+      if (refreshed?.guests.some(guest => guest.id === savedId)) setWelcomeWishId(savedId);
     } catch (error) { setNotice(`${error instanceof Error ? error.message : "저장 여부를 확인하지 못했어요."} 입력 내용은 유지됩니다. 같은 내용으로 다시 시도할 수 있어요.`); }
     finally { setSending(false); }
   }
@@ -69,7 +78,7 @@ export default function Invitation() {
     {w.isExample && <aside className="wi-example">예시 청첩장 · 이름과 예식 정보는 실제 정보가 아닙니다</aside>}
     <header className="wi-cover">
       <p className="wi-kicker">THE WEDDING OF</p><h1>{w.couple[0].name}<span>&amp;</span>{w.couple[1].name}</h1>
-      <CoverPhoto photo={w.coverPhoto}><div className="wi-hero-art" aria-label="꽃 아래 함께 선 두 사람"><img className="wi-hero-arch" src={publicPath("/assets/v10/decor/arch.webp")} alt=""/><CoupleSprite preview/></div></CoverPhoto>
+      <CoverPhoto photo={w.coverPhoto}><IllustratedCover/></CoverPhoto>
       <p className="wi-date-line">{year}.{String(month).padStart(2, "0")}.{String(day).padStart(2, "0")}</p>
       <p className="wi-venue-line">{longDate}<br/>{w.venue.name}{w.venue.hall && ` · ${w.venue.hall}`}</p><a href="#invitation" className="wi-scroll" aria-label="초대의 글로 이동">아래로 천천히 ↓</a>
     </header>
@@ -78,8 +87,8 @@ export default function Invitation() {
     <section className="wi-section"><p className="wi-kicker">OUR MOMENTS</p><h2>함께 쌓아 온 순간들</h2>{w.photos.length ? <PhotoGallery photos={w.photos}/> : <div className="wi-photo-placeholder"><span aria-hidden="true">✿</span><p>우리의 사진을 준비하고 있어요</p><small>사진이 들어갈 자리입니다</small></div>}</section>
     <section id="location" className="wi-section wi-location"><p className="wi-kicker">LOCATION</p><h2>오시는 길</h2><h3>{w.venue.name}</h3>{w.venue.hall && <p>{w.venue.hall}</p>}{w.venue.address ? <><p>{w.venue.address}</p>{w.venue.mapEmbedUrl && <iframe className="wi-location-map" src={w.venue.mapEmbedUrl} title={`${w.venue.name} 지도`} loading="lazy" referrerPolicy="strict-origin-when-cross-origin" allowFullScreen/>}<div className="wi-actions"><button className="wi-button" onClick={() => void copy(w.venue.address)}>주소 복사</button><a className="wi-button" target="_blank" rel="noreferrer" href={`https://map.naver.com/p/search/${encodeURIComponent(`${w.venue.name} ${w.venue.address}`)}`}>네이버 지도</a><a className="wi-button" target="_blank" rel="noreferrer" href={w.venue.kakaoPlaceId ? `https://map.kakao.com/link/map/${w.venue.kakaoPlaceId}` : `https://map.kakao.com/?q=${encodeURIComponent(w.venue.address)}`}>카카오맵</a>{w.venue.kakaoPlaceId && <a className="wi-button" target="_blank" rel="noreferrer" href={`https://map.kakao.com/link/to/${w.venue.kakaoPlaceId}`}>길찾기 · 내비</a>}</div></> : <p className="wi-muted">예식장 주소와 교통 안내를 준비하고 있어요.</p>}{w.venue.phone && <p><a className="wi-button" href={`tel:${w.venue.phone}`} aria-label={`${w.venue.name} 예식장에 전화`}>예식장 전화 {w.venue.phone}</a></p>}{w.venue.transit.map(line => <p key={line} className="wi-transit">{line}</p>)}</section>
     {w.accounts.length > 0 && <section className="wi-section"><p className="wi-kicker">WITH GRATITUDE</p><h2>마음 전하실 곳</h2><p className="wi-muted">전해 주시는 따뜻한 마음에 감사드립니다.</p>{w.accounts.map(account => <details className="wi-account" key={`${account.bank}-${account.number}`}><summary>{account.label}</summary><p>{account.bank} {account.number}<br/>{account.holder}</p><button className="wi-button" onClick={() => void copy(account.number)}>계좌번호 복사</button></details>)}</section>}
-    <section id="guestbook" className="wi-section wi-guestbook"><p className="wi-kicker">OUR GUEST GARDEN</p><h2>축하가 모여 피어나는 정원</h2><p className="wi-muted">하객을 눌러 축하의 마음을 읽어 보세요.<br/>남겨 주신 메시지마다 정원에 한 분이 함께합니다.</p>{!endpoint && <p className="wi-demo-note">저장되지 않는 예시 방명록입니다. 메시지는 이 화면에서만 보이며 새로고침하면 사라집니다.</p>}
-      <GroupScene template={templates[0]} totalGuests={data.total} scene={data.scene} days={daysToWedding(w.dateTime.slice(0, 10))} effects getWish={ordinal => data.guests[ordinal - data.scene * 36]} selected={selected} onSelect={setSelected} dogEnabled={dog} onDogEnabledChange={setDog} dogScope="pages-wedding" onDogSceneChange={scene => void load(data.page, scene)}/>
+    <section id="guestbook" className="wi-section wi-guestbook"><p className="wi-kicker">OUR GUEST GARDEN</p><h2>축하가 모여 피어나는 정원</h2><p className="wi-muted">축하를 한 줄 남기면 정원에 하객 한 분이 찾아옵니다.<br/>강아지와 산책하며 하객들의 축하를 만나 보세요.</p>{!endpoint && <p className="wi-demo-note">저장되지 않는 예시 방명록입니다. 메시지는 이 화면에서만 보이며 새로고침하면 사라집니다.</p>}
+      <GroupScene welcomeWishId={welcomeWishId} template={templates[0]} totalGuests={data.total} scene={data.scene} days={daysToWedding(w.dateTime.slice(0, 10))} effects getWish={ordinal => data.guests[ordinal - data.scene * 36]} selected={selected} onSelect={setSelected} dogEnabled={dog} onDogEnabledChange={setDog} dogScope="pages-wedding" onDogSceneChange={scene => void load(data.page, scene)}/>
       {data.total > 36 && <nav className="wi-pagination" aria-label="정원 장면"><button disabled={loading || data.scene === 0} onClick={() => void load(data.page, data.scene - 1)}>이전 정원</button><span>{data.scene + 1} / {Math.ceil(data.total / 36)}</span><button disabled={loading || (data.scene + 1) * 36 >= data.total} onClick={() => void load(data.page, data.scene + 1)}>다음 정원</button></nav>}
       <div className="wi-comments-heading"><h3>축하 메시지 <small>{data.total}</small></h3><button onClick={() => void load(data.page, data.scene)} disabled={loading}>{loading ? "불러오는 중…" : "새로고침"}</button></div>
       {readError && <p role="alert" className="wi-error">{readError}</p>}
